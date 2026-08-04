@@ -1,4 +1,4 @@
-  :root{
+:root{
     --navy:#3a1576; --navy-2:#2a0f63; --navy-3:#4a23a0;
     --brand-red:#e4002b; --brand-purple:#5a1bc9;
     --accent:#5a1bc9; --accent-soft:#7a3ff0;
@@ -11,7 +11,7 @@
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0;height:100%}
   body{font-family:"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45;-webkit-font-smoothing:antialiased}
-  .app{display:flex;flex-direction:column;min-height:100vh;min-height:100dvh}
+  .app{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden}
 
   .top{background:linear-gradient(120deg,var(--brand-red),var(--brand-purple));color:#fff;padding:14px 16px 12px;border-bottom:3px solid rgba(255,255,255,.22);padding-top:calc(14px + env(safe-area-inset-top))}
   .top .row{display:flex;align-items:center;gap:10px}
@@ -82,7 +82,7 @@
   .addph{display:inline-flex;align-items:center;gap:9px;border:2px dashed var(--line);border-radius:12px;padding:14px 18px;font-size:15px;font-weight:700;color:var(--navy);cursor:pointer;background:#fff}
   .hint{font-size:11.5px;color:var(--grey);margin-top:8px;line-height:1.4}
   .grid2{display:grid;gap:14px}
-  .nav{display:flex;gap:11px;padding:12px 16px;background:#fff;border-top:1px solid var(--line);padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+  .nav{display:flex;gap:11px;padding:12px 16px;background:#fff;border-top:1px solid var(--line);box-shadow:0 -3px 10px rgba(15,27,45,.06);padding-bottom:calc(12px + env(safe-area-inset-bottom))}
   .nav button{flex:1;border:none;border-radius:12px;padding:16px;font-size:16px;font-weight:700;cursor:pointer}
   .nav .back{flex:0 0 100px;background:#e4e9f0;color:var(--navy)}
   .nav .next{background:var(--accent);color:#fff}
