@@ -87,7 +87,6 @@ const TYPES={
 /* PCTSI (SDU grid) — project info fields and per-pit columns */
 const SDU_META=[
   {k:"date", label:"Date", type:"date"},
-  {k:"pctsiNo", label:"PCTSI No", ph:"PCTSI number"},
   {k:"siteName", label:"Site Name", ph:"Site name"},
   {k:"inspector", label:"PCTSI Inspector", ph:"Name"},
   {k:"pm", label:"Project Manager", ph:"Name"},
