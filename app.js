@@ -6,7 +6,7 @@
               Shows in the header on the dashboard.
    APP_TITLE: the title shown in the header on the dashboard.
    ========================================================= */
-const LOGO_SRC = "";               // e.g. "logo.png"
+const LOGO_SRC = "Assets/logo2.png";               // e.g. "logo.png"
 const APP_TITLE = "Site Audits";   // dashboard header title
 
 let logoOk=false;
