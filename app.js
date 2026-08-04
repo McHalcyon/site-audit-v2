@@ -7,7 +7,7 @@
    APP_TITLE: the title shown in the header on the dashboard.
    ========================================================= */
 const LOGO_SRC = "Assets/logo2.png";               // e.g. "logo.png"
-const APP_TITLE = "Multiple Sites Audits Checklist V2";   // dashboard header title
+const APP_TITLE = "Sites Audits Checklist V2";   // dashboard header title
 
 let logoOk=false;
 function applyBranding(){
@@ -79,7 +79,7 @@ const PIT_ITEMS=[
   {n:"18", q:"All required photos taken?", yn:1, photo:1}
 ];
 const TYPES={
-  MDU:{name:"MDU Site Audit", sub:"Multi-Dwelling Unit", ver:"V.1.1", items:MDU_ITEMS, ready:true, mode:"wizard"},
+  MDU:{name:"MDU Site Audit", sub:"Multi-Dwelling Unit", ver:"", items:MDU_ITEMS, ready:true, mode:"wizard"},
   PIT:{name:"Lead-in Pit Audit", sub:"Lead-in pit inspection", ver:"", items:PIT_ITEMS, ready:true, mode:"wizard",
     intro:"Mandatory photos: overall pit location · pit open (conduit entries) · pit lid closed · conduits inside pit · direction to BEP · any defects or damage."},
   SDU:{name:"SDU Site Audit", sub:"PCTSI pit inspection", ver:"V.1", items:[], ready:true, mode:"grid"}
