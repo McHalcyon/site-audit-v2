@@ -7,7 +7,7 @@
    APP_TITLE: the title shown in the header on the dashboard.
    ========================================================= */
 const LOGO_SRC = "Assets/logo2.png";               // e.g. "logo.png"
-const APP_TITLE = "Site Audits Checklist V2";   // dashboard header title
+const APP_TITLE = "Site Audits Checklist";   // dashboard header title
 
 let logoOk=false;
 function applyBranding(){
@@ -87,6 +87,7 @@ const TYPES={
 /* PCTSI (SDU grid) — project info fields and per-pit columns */
 const SDU_META=[
   {k:"date", label:"Date", type:"date"},
+  {k:"pctsiNo", label:"PCTSI No", ph:"PCTSI number"},
   {k:"siteName", label:"Site Name", ph:"Site name"},
   {k:"inspector", label:"PCTSI Inspector", ph:"Name"},
   {k:"pm", label:"Project Manager", ph:"Name"},
@@ -301,9 +302,9 @@ function renderGrid(){
     st.pits.forEach((p)=>{
       const f=p.fields||{};const pfs=PIT_FIELDS.filter(x=>x.type==="pf");
       const passes=pfs.filter(x=>f[x.k]==="P").length,fails=pfs.filter(x=>f[x.k]==="F").length;
-      const title=f.pitId||"Untitled pit";
-      h+=`<div class="acard"><div class="r1"><span class="site">${esc(title)}</span></div>
-        <div class="sub">${f.pitType?esc(f.pitType)+" · ":""}${passes} pass · ${fails} fail${f.units?" · units "+esc(f.units):""}</div>
+      const title=f.pitId||"Untitled";
+      h+=`<div class="acard"><div class="r1"><span class="badge">${esc(title)}</span>${f.pitType?`<span class="site">${esc(f.pitType)}</span>`:""}</div>
+        <div class="sub">${passes} pass · ${fails} fail${f.units?" · units "+esc(f.units):""}</div>
         <div class="acts"><button class="open" onclick="editPit('${p.id}')">Edit</button><button class="del" onclick="deletePit('${p.id}')">🗑</button></div></div>`;
     });
     h+=`<button onclick="addPit()" style="width:100%;margin-top:6px;border:2px dashed var(--accent);background:#fff;color:var(--accent);border-radius:12px;padding:15px;font-size:15px;font-weight:700;cursor:pointer">＋ Add pit</button>`;
