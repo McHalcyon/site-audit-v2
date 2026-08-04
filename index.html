@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Site Audits</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="row">
+      <button class="back" id="backMenu" onclick="goMenu()" style="display:none">‹ Menu</button>
+      <!-- Optional logo: in app.js set LOGO_SRC (e.g. "logo.png") and drop the image file in this same folder. Leave "" for no logo. -->
+      <img id="appLogo" class="logo" alt="" style="display:none">
+      <div class="ttl" id="topTitle">Site Audits</div>
+      <div class="step" id="topStep"></div>
+      <img id="appLogo" class="logo" alt="" style="display:none">
+    </div>
+    <div class="pbar" id="pbarWrap" style="display:none"><span id="pbar"></span></div>
+  </div>
+  <div class="screen" id="screen"></div>
+  <div class="nav" id="nav" style="display:none"></div>
+</div>
+<div id="printView"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
