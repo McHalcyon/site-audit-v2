@@ -6,7 +6,7 @@
               Shows in the header on the dashboard.
    APP_TITLE: the title shown in the header on the dashboard.
    ========================================================= */
-const LOGO_SRC = "Assets/logo2.png";               // e.g. "logo.png"
+const LOGO_SRC = "";               // e.g. "logo.png"
 const APP_TITLE = "Site Audits";   // dashboard header title
 
 let logoOk=false;
@@ -79,11 +79,33 @@ const PIT_ITEMS=[
   {n:"18", q:"All required photos taken?", yn:1, photo:1}
 ];
 const TYPES={
-  MDU:{name:"MDU Site Audit", sub:"Multi-Dwelling Unit", ver:"V.1.1", items:MDU_ITEMS, ready:true},
-  PIT:{name:"Lead-in Pit Audit", sub:"Lead-in pit inspection", ver:"", items:PIT_ITEMS, ready:true,
+  MDU:{name:"MDU Site Audit", sub:"Multi-Dwelling Unit", ver:"V.1.1", items:MDU_ITEMS, ready:true, mode:"wizard"},
+  PIT:{name:"Lead-in Pit Audit", sub:"Lead-in pit inspection", ver:"", items:PIT_ITEMS, ready:true, mode:"wizard",
     intro:"Mandatory photos: overall pit location · pit open (conduit entries) · pit lid closed · conduits inside pit · direction to BEP · any defects or damage."},
-  SDU:{name:"SDU Site Audit", sub:"Single-Dwelling Unit", ver:"", items:[], ready:false}
+  SDU:{name:"SDU Site Audit", sub:"PCTSI pit inspection", ver:"V.1", items:[], ready:true, mode:"grid"}
 };
+/* PCTSI (SDU grid) — project info fields and per-pit columns */
+const SDU_META=[
+  {k:"date", label:"Date", type:"date"},
+  {k:"siteName", label:"Site Name", ph:"Site name"},
+  {k:"inspector", label:"PCTSI Inspector", ph:"Name"},
+  {k:"pm", label:"Project Manager", ph:"Name"},
+  {k:"fieldTech", label:"Field Tech", ph:"Name"}
+];
+const PIT_FIELDS=[
+  {k:"pitId", label:"Pit ID", type:"text"},
+  {k:"pitType", label:"Pit Type", type:"text"},
+  {k:"units", label:"Units Associated", type:"text"},
+  {k:"physical", label:"Physical Pit Condition", type:"pf"},
+  {k:"gasket", label:"Gasket", type:"pf"},
+  {k:"spigot", label:"Spigot", type:"pf"},
+  {k:"plugs", label:"Plugs", type:"pf"},
+  {k:"drawstring", label:"Draw String", type:"pf"},
+  {k:"elevation", label:"Elevation", type:"pf"},
+  {k:"compaction", label:"Compaction", type:"pf"},
+  {k:"surrounding", label:"Surrounding Condition", type:"pf"},
+  {k:"comments", label:"Additional Comments", type:"textarea"}
+];
 
 /* ============ storage ============ */
 const DBKEY="siteAuditsDB_v1";
@@ -127,21 +149,26 @@ function compress(file){return new Promise(res=>{try{
 
 /* ============ app state ============ */
 let view="dashboard", activeId=null, pos=0, st=null, ITEMS=[];
+let gridView="main", editingPit=null;
 var CH={};
 function A(){return DB.audits[activeId];}
+function mode(){return A()?TYPES[A().type].mode:"wizard";}
 function pctOf(s,items){let t=0,c=0;items.forEach(it=>{if(it.yn){t++;if((s.items[it.n]||{}).yn)c++;}(it.subs||[]).forEach((sb,i)=>{if(sb.yn){t++;if((s.items[it.n]||{})["s"+i+"yn"])c++;}});});return t?Math.round(c/t*100):0;}
 
-function save(){if(activeId&&DB.audits[activeId]){const a=DB.audits[activeId];a.updated=Date.now();a.site=(st.meta.addr||"").trim();a.date=st.meta.date||"";a.pct=pctOf(st,ITEMS);}saveDB();}
+function save(){if(activeId&&DB.audits[activeId]){const a=DB.audits[activeId];a.updated=Date.now();
+  if(TYPES[a.type].mode==="grid"){a.site=(st.meta.siteName||"").trim();a.date=st.meta.date||"";a.count=(st.pits||[]).length;}
+  else{a.site=(st.meta.addr||"").trim();a.date=st.meta.date||"";a.pct=pctOf(st,ITEMS);}
+}saveDB();}
 
 /* ============ render router ============ */
 function renderApp(){
-  const wiz=view==="wizard";
-  document.getElementById("backMenu").style.display=wiz?"block":"none";
+  const wiz=view==="wizard", grid=view==="grid", inAudit=wiz||grid;
+  document.getElementById("backMenu").style.display=inAudit?"block":"none";
   document.getElementById("pbarWrap").style.display=wiz?"block":"none";
-  document.getElementById("nav").style.display=wiz?"flex":"none";
+  document.getElementById("nav").style.display=inAudit?"flex":"none";
   const logo=document.getElementById("appLogo");
-  if(logo)logo.style.display=(logoOk&&!wiz)?"block":"none";
-  if(wiz)renderScreen();else renderDashboard();
+  if(logo)logo.style.display=(logoOk&&!inAudit)?"block":"none";
+  if(wiz)renderScreen();else if(grid)renderGrid();else renderDashboard();
 }
 
 /* ============ dashboard ============ */
@@ -166,14 +193,16 @@ function renderDashboard(){
     h+=`<div class="empty">No saved audits yet.<br>Start one above — it'll be saved here so you can reopen or re-export it.</div>`;
   }else{
     list.forEach(a=>{
-      const items=TYPES[a.type]?TYPES[a.type].items:[];
-      const pct=pctOf(a.st,items);
+      const t=TYPES[a.type];const grid=t&&t.mode==="grid";
       const site=a.site||"Untitled site";
       const when=a.updated?new Date(a.updated).toLocaleDateString():"";
+      let sub,bar;
+      if(grid){const n=((a.st&&a.st.pits)||[]).length;sub=`${n} pit${n!==1?'s':''}${when?" · updated "+when:""}`;bar="";}
+      else{const pct=pctOf(a.st,t?t.items:[]);sub=`${pct}% complete${when?" · updated "+when:""}`;bar=`<div class="minibar"><span style="width:${pct}%"></span></div>`;}
       h+=`<div class="acard">
         <div class="r1"><span class="badge ${a.type}">${a.type}</span><span class="site">${esc(site)}</span></div>
-        <div class="sub">${pct}% complete${when?" · updated "+when:""}</div>
-        <div class="minibar"><span style="width:${pct}%"></span></div>
+        <div class="sub">${sub}</div>
+        ${bar}
         <div class="acts">
           <button class="open" onclick="openAudit('${a.id}')">Open</button>
           <button onclick="pdfAudit('${a.id}')">PDF</button>
@@ -195,7 +224,10 @@ function newAuditOf(type){
 }
 function openAudit(id){
   if(!DB.audits[id])return;
-  activeId=id;ITEMS=TYPES[A().type].items;st=A().st;pos=0;view="wizard";renderApp();
+  activeId=id;const a=A();ITEMS=TYPES[a.type].items||[];st=a.st;
+  if(TYPES[a.type].mode==="grid"){if(!st.pits)st.pits=[];gridView="main";editingPit=null;view="grid";}
+  else{pos=0;view="wizard";}
+  renderApp();
 }
 function goMenu(){save();view="dashboard";renderApp();}
 async function deleteAudit(id){
@@ -210,6 +242,77 @@ async function pdfAudit(id){
   const a=DB.audits[id];if(!a)return;
   activeId=id;ITEMS=TYPES[a.type].items;st=a.st;
   await buildPrint();setTimeout(()=>window.print(),80);
+}
+
+/* ============ grid mode (SDU / PCTSI pit inspection) ============ */
+function pit(id){return (st.pits||[]).find(p=>p.id===id)||{fields:{}};}
+function setPitField(id,key,val){const p=pit(id);p.fields=p.fields||{};p.fields[key]=val;save();}
+function setPF(id,key,val){const p=pit(id);p.fields=p.fields||{};p.fields[key]=(p.fields[key]===val)?"":val;save();renderApp();}
+function pfHTML(id,key){const v=(pit(id).fields||{})[key]||"";return `<div class="yn">
+  <button class="y ${v==='P'?'on':''}" onclick="setPF('${id}','${key}','P')">Pass</button>
+  <button class="n ${v==='F'?'on':''}" onclick="setPF('${id}','${key}','F')">Fail</button>
+  <button class="x ${v==='NA'?'on':''}" onclick="setPF('${id}','${key}','NA')">N/A</button></div>`;}
+function addPit(){const id="p"+Date.now().toString(36)+Math.floor(Math.random()*1e4);st.pits.push({id,fields:{}});save();editingPit=id;gridView="pit";renderApp();}
+function editPit(id){editingPit=id;gridView="pit";renderApp();}
+async function deletePit(id){
+  if(!confirm("Delete this pit?"))return;
+  const ph=await getPhotos(activeId,"P"+id);for(const p of ph)await rmPhoto(activeId,"P"+id,p.id);
+  st.pits=st.pits.filter(p=>p.id!==id);save();gridView="main";editingPit=null;renderApp();
+}
+function backToPits(){gridView="main";editingPit=null;renderApp();}
+
+function renderGrid(){
+  const t=TYPES[A().type];
+  document.getElementById("topTitle").textContent=t.name+(t.ver?" · "+t.ver:"");
+  const sc=document.getElementById("screen");
+  const nav=document.getElementById("nav");
+
+  if(gridView==="pit"){
+    const p=pit(editingPit);
+    const titleTxt=(p.fields&&p.fields.pitId)?p.fields.pitId:"New pit";
+    document.getElementById("topStep").textContent=titleTxt;
+    let h=`<div class="qtitle" id="pitTitle" style="margin-bottom:14px">${esc(titleTxt)}</div>`;
+    PIT_FIELDS.forEach(f=>{
+      h+=`<div class="label">${esc(f.label)}</div>`;
+      const v=(p.fields||{})[f.k]||"";
+      if(f.type==="text"){
+        const extra=f.k==="pitId"?`;var _t=document.getElementById('pitTitle'),_s=document.getElementById('topStep');if(_t)_t.textContent=this.value||'New pit';if(_s)_s.textContent=this.value||'New pit'`:"";
+        h+=`<input type="text" value="${esc(v)}" oninput="setPitField('${p.id}','${f.k}',this.value)${extra}">`;
+      }
+      else if(f.type==="textarea")h+=`<textarea placeholder="Notes…" oninput="setPitField('${p.id}','${f.k}',this.value)">${esc(v)}</textarea>`;
+      else if(f.type==="pf")h+=pfHTML(p.id,f.k);
+    });
+    h+=`<div class="label">Photos</div><div class="photos" id="ph_P${p.id}"></div>
+      <label class="addph" id="addlbl_P${p.id}"><span class="ic" style="font-size:18px">＋</span> Add photo
+        <input type="file" accept="image/*" multiple style="display:none" onchange="addPhotos('P${p.id}',this.files)"></label>
+      <div class="hint">Photos for this pit. Stored on this device; also upload under the project folder.</div>
+      <button onclick="deletePit('${p.id}')" style="width:100%;margin-top:24px;border:1px solid var(--line);background:#fff;color:var(--red);border-radius:12px;padding:14px;font-size:14px;font-weight:700;cursor:pointer">🗑 Delete this pit</button>`;
+    sc.innerHTML=h;
+    loadThumbs("P"+p.id);
+    nav.innerHTML=`<button class="back" onclick="backToPits()">‹ Pits</button><button class="next" onclick="addPit()">＋ New pit</button>`;
+  }else{
+    document.getElementById("topStep").textContent="Inspection";
+    let h=`<div style="background:#fff6df;border:1px solid #ecd99a;color:#7a5a13;border-radius:12px;padding:13px 15px;font-size:13.5px;line-height:1.45">⚠︎ <b>Refer to the schematic / design</b> during the inspection. All photos to be uploaded under the project folder with the date.</div>`;
+    h+=`<div class="label" style="margin-top:18px">PCTSI details</div><div class="grid2">`;
+    SDU_META.forEach(m=>{const v=(st.meta||{})[m.k]||"";h+=`<div><div class="label">${esc(m.label)}</div><input type="${m.type||'text'}" value="${esc(v)}" placeholder="${esc(m.ph||'')}" oninput="setMeta('${m.k}',this.value)"></div>`;});
+    h+=`</div>`;
+    h+=`<div class="label" style="margin-top:24px">Pits (${st.pits.length})</div>`;
+    if(!st.pits.length)h+=`<div class="empty">No pits added yet. Tap “Add pit” to record the first one.</div>`;
+    st.pits.forEach((p)=>{
+      const f=p.fields||{};const pfs=PIT_FIELDS.filter(x=>x.type==="pf");
+      const passes=pfs.filter(x=>f[x.k]==="P").length,fails=pfs.filter(x=>f[x.k]==="F").length;
+      const title=f.pitId||"Untitled pit";
+      h+=`<div class="acard"><div class="r1"><span class="site">${esc(title)}</span></div>
+        <div class="sub">${f.pitType?esc(f.pitType)+" · ":""}${passes} pass · ${fails} fail${f.units?" · units "+esc(f.units):""}</div>
+        <div class="acts"><button class="open" onclick="editPit('${p.id}')">Edit</button><button class="del" onclick="deletePit('${p.id}')">🗑</button></div></div>`;
+    });
+    h+=`<button onclick="addPit()" style="width:100%;margin-top:6px;border:2px dashed var(--accent);background:#fff;color:var(--accent);border-radius:12px;padding:15px;font-size:15px;font-weight:700;cursor:pointer">＋ Add pit</button>`;
+    h+=`<div class="label" style="margin-top:26px">Other comments / observations</div><textarea placeholder="Anything else noted on site…" oninput="setObs(this.value)">${esc(st.obs)}</textarea>`;
+    sc.innerHTML=h;
+    nav.innerHTML=`<button class="save" onclick="saveP()">Save PDF</button>`;
+  }
+  sc.scrollTop=0;
+  try{if(window.scrollTo)window.scrollTo(0,0);}catch(e){}
 }
 
 /* ============ wizard ============ */
@@ -338,6 +441,7 @@ async function delPhoto(item,id){
 /* ============ PDF ============ */
 async function buildPrint(){
   const a=A();const t=TYPES[a.type];const m=st.meta;
+  if(t.mode==="grid"){return buildPrintGrid(t,m);}
   let h=`<h2>${esc(t.name)}${t.ver?" — "+esc(t.ver):""}</h2>
     <table>
       <tr><td><b>Site address</b></td><td>${esc(m.addr)||'—'}</td><td><b>Auditor (FTT)</b></td><td>${esc(m.auditor)||'—'}</td></tr>
@@ -354,6 +458,24 @@ async function buildPrint(){
     if(it.photo){const ph=await getPhotos(activeId,it.n);if(ph.length){const urls=(await Promise.all(ph.map(p=>blobToDataURL(p.blob)))).filter(Boolean);if(urls.length)imgs=`<div class="pimgs">${urls.map(u=>`<img src="${u}">`).join("")}</div>`;}}
     h+=`<div class="pi"><div class="pq">${esc(it.n)}. ${esc(it.q)} — ${ai}</div>${subs}${d.note?`<div class="pa">Note: ${esc(d.note)}</div>`:''}${imgs}</div>`;
   }
+  if(st.obs)h+=`<div class="pi"><div class="pq">Other comments / observations</div><div class="pa">${esc(st.obs)}</div></div>`;
+  document.getElementById("printView").innerHTML=h;
+}
+async function buildPrintGrid(t,m){
+  const pf=v=>v==='P'?'Pass':v==='F'?'Fail':v==='NA'?'N/A':'—';
+  let h=`<h2>${esc(t.name)}${t.ver?" — "+esc(t.ver):""}</h2>
+    <table>
+      <tr><td><b>Site name</b></td><td>${esc(m.siteName)||'—'}</td><td><b>PCTSI No</b></td><td>${esc(m.pctsiNo)||'—'}</td></tr>
+      <tr><td><b>Date</b></td><td>${esc(m.date)||'—'}</td><td><b>Inspector</b></td><td>${esc(m.inspector)||'—'}</td></tr>
+      <tr><td><b>Project Manager</b></td><td>${esc(m.pm)||'—'}</td><td><b>Field Tech</b></td><td>${esc(m.fieldTech)||'—'}</td></tr>
+    </table>`;
+  const pits=st.pits||[];
+  if(pits.length){
+    h+=`<table style="font-size:10.5px"><tr>${PIT_FIELDS.map(f=>`<td><b>${esc(f.label)}</b></td>`).join("")}</tr>`;
+    pits.forEach(p=>{const f=p.fields||{};h+=`<tr>${PIT_FIELDS.map(col=>{let v=f[col.k]||"";if(col.type==="pf")v=pf(v);return `<td>${esc(v)||'—'}</td>`;}).join("")}</tr>`;});
+    h+=`</table>`;
+  }else{h+=`<p style="font-size:12px">No pits recorded.</p>`;}
+  for(let i=0;i<pits.length;i++){const p=pits[i];const ph=await getPhotos(activeId,"P"+p.id);if(ph.length){const urls=(await Promise.all(ph.map(x=>blobToDataURL(x.blob)))).filter(Boolean);if(urls.length)h+=`<div class="pi"><div class="pq">${esc(p.fields.pitId||("Pit "+(i+1)))} — photos</div><div class="pimgs">${urls.map(u=>`<img src="${u}">`).join("")}</div></div>`;}}
   if(st.obs)h+=`<div class="pi"><div class="pq">Other comments / observations</div><div class="pa">${esc(st.obs)}</div></div>`;
   document.getElementById("printView").innerHTML=h;
 }
