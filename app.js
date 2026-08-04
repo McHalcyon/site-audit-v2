@@ -79,7 +79,7 @@ const PIT_ITEMS=[
   {n:"18", q:"All required photos taken?", yn:1, photo:1}
 ];
 const TYPES={
-  MDU:{name:"MDU Site Audit", sub:"Multi-Dwelling Unit", ver:"", items:MDU_ITEMS, ready:true, mode:"wizard"},
+  MDU:{name:"MDU Site Audit", sub:"Multi-Dwelling Unit", ver:"V.1.1", items:MDU_ITEMS, ready:true, mode:"wizard"},
   PIT:{name:"Lead-in Pit Audit", sub:"Lead-in pit inspection", ver:"", items:PIT_ITEMS, ready:true, mode:"wizard",
     intro:"Mandatory photos: overall pit location · pit open (conduit entries) · pit lid closed · conduits inside pit · direction to BEP · any defects or damage."},
   SDU:{name:"SDU Site Audit", sub:"PCTSI pit inspection", ver:"V.1", items:[], ready:true, mode:"grid"}
@@ -150,6 +150,7 @@ function compress(file){return new Promise(res=>{try{
 /* ============ app state ============ */
 let view="dashboard", activeId=null, pos=0, st=null, ITEMS=[];
 let gridView="main", editingPit=null;
+let goTop=false;
 var CH={};
 function A(){return DB.audits[activeId];}
 function mode(){return A()?TYPES[A().type].mode:"wizard";}
@@ -162,6 +163,8 @@ function save(){if(activeId&&DB.audits[activeId]){const a=DB.audits[activeId];a.
 
 /* ============ render router ============ */
 function renderApp(){
+  const scEl=document.getElementById("screen");
+  const keep=scEl?scEl.scrollTop:0;
   const wiz=view==="wizard", grid=view==="grid", inAudit=wiz||grid;
   document.getElementById("backMenu").style.display=inAudit?"block":"none";
   document.getElementById("pbarWrap").style.display=wiz?"block":"none";
@@ -169,6 +172,10 @@ function renderApp(){
   const logo=document.getElementById("appLogo");
   if(logo)logo.style.display=(logoOk&&!inAudit)?"block":"none";
   if(wiz)renderScreen();else if(grid)renderGrid();else renderDashboard();
+  const sc2=document.getElementById("screen");
+  if(sc2)sc2.scrollTop=goTop?0:keep;
+  if(goTop){try{if(window.scrollTo)window.scrollTo(0,0);}catch(e){}}
+  goTop=false;
 }
 
 /* ============ dashboard ============ */
@@ -212,7 +219,6 @@ function renderDashboard(){
     });
   }
   sc.innerHTML=h;
-  sc.scrollTop=0;
 }
 
 /* ============ audit lifecycle ============ */
@@ -227,9 +233,9 @@ function openAudit(id){
   activeId=id;const a=A();ITEMS=TYPES[a.type].items||[];st=a.st;
   if(TYPES[a.type].mode==="grid"){if(!st.pits)st.pits=[];gridView="main";editingPit=null;view="grid";}
   else{pos=0;view="wizard";}
-  renderApp();
+  goTop=true;renderApp();
 }
-function goMenu(){save();view="dashboard";renderApp();}
+function goMenu(){if(view==="grid"&&gridView==="pit"&&pitInvalid(pit(editingPit))){showCmtWarn();return;}save();view="dashboard";goTop=true;renderApp();}
 async function deleteAudit(id){
   const a=DB.audits[id];if(!a)return;
   if(!confirm(`Delete this ${a.type} audit for "${a.site||'Untitled site'}"? This removes its answers and photos from this device.`))return;
@@ -240,6 +246,7 @@ async function deleteAudit(id){
 }
 async function pdfAudit(id){
   const a=DB.audits[id];if(!a)return;
+  if(TYPES[a.type].mode==="grid"){const bad=(a.st.pits||[]).find(pitInvalid);if(bad){alert("This inspection has a pit marked Fail without a comment.\n\nOpen it and add the comment before exporting.");openAudit(id);editPit(bad.id);setTimeout(showCmtWarn,80);return;}}
   activeId=id;ITEMS=TYPES[a.type].items;st=a.st;
   await buildPrint();setTimeout(()=>window.print(),80);
 }
@@ -252,14 +259,23 @@ function pfHTML(id,key){const v=(pit(id).fields||{})[key]||"";return `<div class
   <button class="y ${v==='P'?'on':''}" onclick="setPF('${id}','${key}','P')">Pass</button>
   <button class="n ${v==='F'?'on':''}" onclick="setPF('${id}','${key}','F')">Fail</button>
   <button class="x ${v==='NA'?'on':''}" onclick="setPF('${id}','${key}','NA')">N/A</button></div>`;}
-function addPit(){const id="p"+Date.now().toString(36)+Math.floor(Math.random()*1e4);st.pits.push({id,fields:{}});save();editingPit=id;gridView="pit";renderApp();}
-function editPit(id){editingPit=id;gridView="pit";renderApp();}
+function addPit(){const id="p"+Date.now().toString(36)+Math.floor(Math.random()*1e4);st.pits.push({id,fields:{}});save();editingPit=id;gridView="pit";goTop=true;renderApp();}
+function editPit(id){editingPit=id;gridView="pit";goTop=true;renderApp();}
 async function deletePit(id){
   if(!confirm("Delete this pit?"))return;
   const ph=await getPhotos(activeId,"P"+id);for(const p of ph)await rmPhoto(activeId,"P"+id,p.id);
-  st.pits=st.pits.filter(p=>p.id!==id);save();gridView="main";editingPit=null;renderApp();
+  st.pits=st.pits.filter(p=>p.id!==id);save();gridView="main";editingPit=null;goTop=true;renderApp();
 }
-function backToPits(){gridView="main";editingPit=null;renderApp();}
+function backToPits(){gridView="main";editingPit=null;goTop=true;renderApp();}
+
+/* a pit with any Fail must have a comment */
+function pitInvalid(p){const f=(p&&p.fields)||{};const anyFail=PIT_FIELDS.some(x=>x.type==="pf"&&f[x.k]==="F");return anyFail&&!(f.comments&&f.comments.trim());}
+function showCmtWarn(){const wn=document.getElementById("cmtWarn");if(wn)wn.style.display="block";const b=document.getElementById("cmtBox");if(b){b.style.borderColor="var(--red)";try{b.scrollIntoView({behavior:"smooth",block:"center"});}catch(e){}try{b.focus();}catch(e){}}}
+function hideCmtWarn(){const wn=document.getElementById("cmtWarn");if(wn)wn.style.display="none";const b=document.getElementById("cmtBox");if(b)b.style.borderColor="";}
+function ensurePitValid(){if(pitInvalid(pit(editingPit))){showCmtWarn();return false;}return true;}
+function leavePits(){if(ensurePitValid())backToPits();}
+function pitSummary(p){const f=p.fields||{};const pf=PIT_FIELDS.filter(x=>x.type==="pf");const P=pf.filter(x=>f[x.k]==="P").length,F=pf.filter(x=>f[x.k]==="F").length,N=pf.filter(x=>f[x.k]==="NA").length;return "Save this pit and start a new one?\n\nPit: "+(f.pitId||"(no ID)")+(f.pitType?" · "+f.pitType:"")+"\nPass "+P+" · Fail "+F+" · N/A "+N;}
+function newPitFromEditor(){if(!ensurePitValid())return;if(!confirm(pitSummary(pit(editingPit))))return;addPit();}
 
 function renderGrid(){
   const t=TYPES[A().type];
@@ -279,7 +295,11 @@ function renderGrid(){
         const extra=f.k==="pitId"?`;var _t=document.getElementById('pitTitle'),_s=document.getElementById('topStep');if(_t)_t.textContent=this.value||'New pit';if(_s)_s.textContent=this.value||'New pit'`:"";
         h+=`<input type="text" value="${esc(v)}" oninput="setPitField('${p.id}','${f.k}',this.value)${extra}">`;
       }
-      else if(f.type==="textarea")h+=`<textarea placeholder="Notes…" oninput="setPitField('${p.id}','${f.k}',this.value)">${esc(v)}</textarea>`;
+      else if(f.type==="textarea"){
+        const isC=f.k==="comments";
+        h+=`<textarea ${isC?'id="cmtBox"':''} placeholder="Notes…" oninput="setPitField('${p.id}','${f.k}',this.value)${isC?";hideCmtWarn()":""}">${esc(v)}</textarea>`;
+        if(isC)h+=`<div id="cmtWarn" style="display:none;color:var(--red);font-size:12.5px;font-weight:700;margin-top:8px">⚠︎ A comment is required when any item is marked <b>Fail</b>. Please add one to continue.</div>`;
+      }
       else if(f.type==="pf")h+=pfHTML(p.id,f.k);
     });
     h+=`<div class="label">Photos</div><div class="photos" id="ph_P${p.id}"></div>
@@ -289,7 +309,7 @@ function renderGrid(){
       <button onclick="deletePit('${p.id}')" style="width:100%;margin-top:24px;border:1px solid var(--line);background:#fff;color:var(--red);border-radius:12px;padding:14px;font-size:14px;font-weight:700;cursor:pointer">🗑 Delete this pit</button>`;
     sc.innerHTML=h;
     loadThumbs("P"+p.id);
-    nav.innerHTML=`<button class="back" onclick="backToPits()">‹ Pits</button><button class="next" onclick="addPit()">＋ New pit</button>`;
+    nav.innerHTML=`<button class="back" onclick="leavePits()">‹ Pits</button><button class="next" onclick="newPitFromEditor()">＋ New pit</button>`;
   }else{
     document.getElementById("topStep").textContent="Inspection";
     let h=`<div style="background:#fff6df;border:1px solid #ecd99a;color:#7a5a13;border-radius:12px;padding:13px 15px;font-size:13.5px;line-height:1.45">⚠︎ <b>Refer to the schematic / design</b> during the inspection. All photos to be uploaded under the project folder with the date.</div>`;
@@ -311,8 +331,6 @@ function renderGrid(){
     sc.innerHTML=h;
     nav.innerHTML=`<button class="save" onclick="saveP()">Save PDF</button>`;
   }
-  sc.scrollTop=0;
-  try{if(window.scrollTo)window.scrollTo(0,0);}catch(e){}
 }
 
 /* ============ wizard ============ */
@@ -326,7 +344,7 @@ function chipHTML(id,key,opts){
     return `<div class="chips">${opts.c.map(o=>`<button class="chip ${cur.indexOf(o)>-1?'on':''}" onclick="toggleMulti('${id}','${key}','${esc(o)}')">${esc(o)}</button>`).join("")}</div>`;}
   const cur=(st.items[id]||{})[key]||"";return `<div class="chips">${opts.c.map((o,i)=>`<button class="chip ${cur===o?'on':''}" onclick="setVal('${id}','${key}',CH['${id}_${key}'][${i}],1)">${esc(o)}</button>`).join("")}</div>`;
 }
-function toggleMulti(id,key,val){const d=get(id);let a=Array.isArray(d[key])?d[key].slice():[];const i=a.indexOf(val);if(i>-1)a.splice(i,1);else a.push(val);d[key]=a;save();renderScreen();}
+function toggleMulti(id,key,val){const d=get(id);let a=Array.isArray(d[key])?d[key].slice():[];const i=a.indexOf(val);if(i>-1)a.splice(i,1);else a.push(val);d[key]=a;save();renderApp();}
 function inpHTML(id,key,ph){const cur=(st.items[id]||{})[key]||"";return `<input type="text" value="${esc(cur)}" placeholder="${esc(ph)}" oninput="setVal('${id}','${key}',this.value,0)">`;}
 function get(id){st.items[id]=st.items[id]||{};return st.items[id];}
 
@@ -385,7 +403,6 @@ function renderScreen(){
       <div class="hint" style="text-align:center;margin-top:18px">Saved to your dashboard. Use ‹ Menu to return, or delete it from there.</div>`;
     buildReview();
   }
-  sc.scrollTop=0;
   renderNav();
 }
 
@@ -407,16 +424,16 @@ async function buildReview(){
   }
   wrap.innerHTML=h;
 }
-function goItem(i){pos=i;renderScreen();}
+function goItem(i){pos=i;goTop=true;renderApp();}
 function renderNav(){
   const nav=document.getElementById("nav");
   if(pos===0)nav.innerHTML=`<button class="next" onclick="next()">Start →</button>`;
   else if(pos===LAST())nav.innerHTML=`<button class="back" onclick="prev()">← Back</button><button class="save" onclick="saveP()">Save PDF</button>`;
   else nav.innerHTML=`<button class="back" onclick="prev()">← Back</button><button class="next" onclick="next()">${pos===ITEMS.length?'Review →':'Next →'}</button>`;
 }
-function next(){if(pos<LAST()){pos++;renderScreen();}}
-function prev(){if(pos>0){pos--;renderScreen();}}
-function setVal(id,key,val,re){const d=get(id);d[key]=(re&&d[key]===val)?"":val;save();if(re)renderScreen();}
+function next(){if(pos<LAST()){pos++;goTop=true;renderApp();}}
+function prev(){if(pos>0){pos--;goTop=true;renderApp();}}
+function setVal(id,key,val,re){const d=get(id);d[key]=(re&&d[key]===val)?"":val;save();if(re)renderApp();}
 function setMeta(k,v){st.meta[k]=v;save();}
 function setObs(v){st.obs=v;save();}
 
@@ -479,7 +496,9 @@ async function buildPrintGrid(t,m){
   if(st.obs)h+=`<div class="pi"><div class="pq">Other comments / observations</div><div class="pa">${esc(st.obs)}</div></div>`;
   document.getElementById("printView").innerHTML=h;
 }
-async function saveP(){const btn=document.querySelector(".nav .save");if(btn)btn.textContent="Preparing…";await buildPrint();if(btn)btn.textContent="Save PDF";setTimeout(()=>window.print(),80);}
+async function saveP(){
+  if(mode()==="grid"){const bad=(st.pits||[]).find(pitInvalid);if(bad){alert("“"+((bad.fields&&bad.fields.pitId)||"A pit")+"” has an item marked Fail but no comment.\n\nPlease add a comment for that pit before saving.");editPit(bad.id);setTimeout(showCmtWarn,80);return;}}
+  const btn=document.querySelector(".nav .save");if(btn)btn.textContent="Preparing…";await buildPrint();if(btn)btn.textContent="Save PDF";setTimeout(()=>window.print(),80);}
 
 /* ============ init ============ */
 idbOpen().then(()=>{loadDB();view="dashboard";renderApp();applyBranding();});
