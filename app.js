@@ -274,6 +274,25 @@ async function deletePit(id){
 }
 function backToPits(){gridView="main";editingPit=null;goTop=true;renderApp();}
 
+/* ---- import PM pit list (xlsx / csv) ---- */
+function parseCSV(text){const rows=[];let row=[],field="",i=0,inQ=false;text=String(text).replace(/\r\n/g,"\n").replace(/\r/g,"\n");while(i<text.length){const c=text[i];if(inQ){if(c==='"'){if(text[i+1]==='"'){field+='"';i+=2;continue;}inQ=false;i++;continue;}field+=c;i++;continue;}if(c==='"'){inQ=true;i++;continue;}if(c===","){row.push(field);field="";i++;continue;}if(c==="\n"){row.push(field);rows.push(row);row=[];field="";i++;continue;}field+=c;i++;}if(field.length||row.length){row.push(field);rows.push(row);}return rows;}
+function parsePitFile(file){return new Promise((res,rej)=>{const name=(file.name||"").toLowerCase();const isX=/\.xlsx$|\.xls$/.test(name);const reader=new FileReader();reader.onerror=()=>rej(new Error("Could not read the file."));if(isX){if(typeof XLSX==="undefined"){rej(new Error("Excel reader isn't loaded. Save the file as CSV, or make sure vendor/xlsx.full.min.js is present."));return;}reader.onload=e=>{try{const wb=XLSX.read(e.target.result,{type:"array"});const ws=wb.Sheets[wb.SheetNames[0]];res(XLSX.utils.sheet_to_json(ws,{header:1,blankrows:false,defval:""}));}catch(err){rej(err);}};reader.readAsArrayBuffer(file);}else{reader.onload=e=>{try{res(parseCSV(e.target.result));}catch(err){rej(err);}};reader.readAsText(file);}});}
+function rowsToPits(rows){if(!rows||!rows.length)return[];let hi=0;while(hi<rows.length&&(rows[hi]||[]).every(c=>String(c).trim()===""))hi++;const header=(rows[hi]||[]).map(c=>String(c).trim().toLowerCase());const idx=names=>{for(const n of names){const j=header.indexOf(n);if(j>-1)return j;}return -1;};const iId=idx(["pit id","pitid","pit"]),iType=idx(["pit type","pittype","type"]),iUnits=idx(["units associated","units","unit"]);const pits=[];for(let r=hi+1;r<rows.length;r++){const row=rows[r]||[];const pitId=iId>-1?String(row[iId]||"").trim():"";const pitType=iType>-1?String(row[iType]||"").trim():"";const units=iUnits>-1?String(row[iUnits]||"").trim():"";if(!pitId&&!pitType&&!units)continue;pits.push({id:"p"+Date.now().toString(36)+Math.floor(Math.random()*1e6)+"_"+r,fields:{pitId,pitType,units}});}return pits;}
+async function importPits(files){
+  const file=files&&files[0];if(!file)return;
+  let rows;try{rows=await parsePitFile(file);}catch(e){alert("Couldn't read that file.\n\n"+(e.message||e)+"\n\nUse the Template button to get the correct format.");return;}
+  const pits=rowsToPits(rows);
+  if(!pits.length){alert("No pits found. The file needs a “Pit ID” column with rows underneath. Use the Template button for the correct format.");return;}
+  if(st.pits.length&&!confirm("Import "+pits.length+" pit"+(pits.length>1?"s":"")+"?\n\nThis REPLACES the current list of "+st.pits.length+" pit"+(st.pits.length>1?"s":"")+", and removes their photos.")) return;
+  await clearAuditPhotos(activeId);
+  st.pits=pits;save();gridView="main";editingPit=null;renderApp();
+  alert(pits.length+" pit"+(pits.length>1?"s":"")+" imported. Fill in the checks for each pit.");
+}
+function downloadTemplate(){
+  const csv="Pit ID,Pit Type,Units Associated\nP-101,P50,12\nP-102,P100,\n";
+  try{const blob=new Blob([csv],{type:"text/csv"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="pit-list-template.csv";document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e){alert("Template columns: Pit ID, Pit Type, Units Associated");}
+}
+
 /* a pit with any Fail must have a comment */
 function pitInvalid(p){const f=(p&&p.fields)||{};const anyFail=PIT_FIELDS.some(x=>x.type==="pf"&&f[x.k]==="F");return anyFail&&!(f.comments&&f.comments.trim());}
 function showCmtWarn(){const wn=document.getElementById("cmtWarn");if(wn)wn.style.display="block";const b=document.getElementById("cmtBox");if(b){b.style.borderColor="var(--red)";try{b.scrollIntoView({behavior:"smooth",block:"center"});}catch(e){}try{b.focus();}catch(e){}}}
@@ -323,6 +342,11 @@ function renderGrid(){
     SDU_META.forEach(m=>{const v=(st.meta||{})[m.k]||"";h+=`<div><div class="label">${esc(m.label)}</div><input type="${m.type||'text'}" value="${esc(v)}" placeholder="${esc(m.ph||'')}" oninput="setMeta('${m.k}',this.value)"></div>`;});
     h+=`</div>`;
     h+=`<div class="label" style="margin-top:24px">Pits (${st.pits.length})</div>`;
+    h+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <label class="importbtn" style="flex:1;min-width:150px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:2px solid var(--accent);background:#fff;color:var(--accent);border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">⬆ Import pit list<input type="file" accept=".csv,.xlsx,.xls" style="display:none" onchange="importPits(this.files)"></label>
+      <button onclick="downloadTemplate()" style="border:1px solid var(--line);background:#fff;color:var(--navy);border-radius:12px;padding:12px 14px;font-size:13px;font-weight:700;cursor:pointer">Template</button>
+    </div>
+    <div class="hint" style="margin-top:-6px;margin-bottom:6px">PM fills Pit ID &amp; Pit Type (Excel/CSV) → import here to pre-fill the pits.</div>`;
     if(!st.pits.length)h+=`<div class="empty">No pits added yet. Tap “Add pit” to record the first one.</div>`;
     st.pits.forEach((p)=>{
       const f=p.fields||{};const pfs=PIT_FIELDS.filter(x=>x.type==="pf");
