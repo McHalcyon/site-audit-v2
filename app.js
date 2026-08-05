@@ -7,7 +7,7 @@
    APP_TITLE: the title shown in the header on the dashboard.
    ========================================================= */
 const LOGO_SRC = "Assets/logo2.png";               // e.g. "logo.png"
-const APP_TITLE = "Site Audits Checklist";   // dashboard header title
+const APP_TITLE = "Site Audits";   // dashboard header title
 
 let logoOk=false;
 function applyBranding(){
@@ -369,7 +369,7 @@ function renderGrid(){
     h+=`</div>`;
     h+=`<div class="label" style="margin-top:24px">Pits (${st.pits.length})</div>`;
     h+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-      <label class="importbtn" style="flex:1;min-width:150px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:2px solid var(--accent);background:#fff;color:var(--accent);border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">⬆ Import pit list<input type="file" accept=".csv,.xlsx,.xls" style="display:none" onchange="importPits(this.files)"></label>
+      <label class="importbtn" style="flex:1;min-width:150px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:2px solid var(--accent);background:#fff;color:var(--accent);border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">Import pit list<input type="file" accept=".csv,.xlsx,.xls" style="display:none" onchange="importPits(this.files)"></label>
       <button onclick="downloadTemplate()" style="border:1px solid var(--line);background:#fff;color:var(--navy);border-radius:12px;padding:12px 14px;font-size:13px;font-weight:700;cursor:pointer">Template</button>
     </div>
     <div class="hint" style="margin-top:-6px;margin-bottom:6px">PM fills Site Name, Project Manager &amp; the pit list (Excel/CSV) → import here to pre-fill.</div>`;
@@ -537,13 +537,13 @@ async function buildPrint(){
     </table>`;
   for(const it of ITEMS){
     const d=st.items[it.n]||{};let ai="";
-    if(it.yn){const v=d.yn;ai+= v==='Y'?'<b>YES</b>':v==='N'?'<b style="color:#c00">NO</b>':v==='NA'?'<b>N/A</b>':'<b>—</b>';}
+    if(it.yn){const v=d.yn;ai+= v==='Y'?'<b style="color:#0a8f2a">YES</b>':v==='N'?'<b style="color:#c00">NO</b>':v==='NA'?'<b>N/A</b>':'<b>—</b>';}
     if(d.chip && (!Array.isArray(d.chip)||d.chip.length))ai+=` &nbsp; [${esc(Array.isArray(d.chip)?d.chip.join(", "):d.chip)}]`;
     let subs="";
     (it.subs||[]).forEach((s,i)=>{
       const yn=d["s"+i+"yn"];
       let disp;
-      if(yn)disp= yn==='N'?'<b style="color:#c00">No</b>':yn==='NA'?'<b>N/A</b>':'<b>Yes</b>';
+      if(yn)disp= yn==='N'?'<b style="color:#c00">No</b>':yn==='NA'?'<b>N/A</b>':'<b style="color:#0a8f2a">Yes</b>';
       else disp='<b>'+esc(d["s"+i+"chip"]||d["s"+i+"txt"]||'—')+'</b>';
       subs+=`<div style="margin-left:14px;font-size:12px">› ${esc(s.q)}: ${disp}</div>`;
     });
@@ -558,14 +558,13 @@ async function buildPrintGrid(t,m){
   const pf=v=>v==='P'?'Pass':v==='F'?'Fail':v==='NA'?'N/A':'—';
   let h=`<h2>${esc(t.name)}${t.ver?" — "+esc(t.ver):""}</h2>
     <table>
-      <tr><td><b>Site name</b></td><td>${esc(m.siteName)||'—'}</td><td><b>PCTSI No</b></td><td>${esc(m.pctsiNo)||'—'}</td></tr>
-      <tr><td><b>Date</b></td><td>${esc(m.date)||'—'}</td><td><b>Inspector</b></td><td>${esc(m.inspector)||'—'}</td></tr>
+      <tr><td><b>Site name</b></td><td>${esc(m.siteName)||'—'}</td><td><b>Date</b></td><td>${esc(m.date)||'—'}</td></tr>
       <tr><td><b>Project Manager</b></td><td>${esc(m.pm)||'—'}</td><td><b>Field Tech</b></td><td>${esc(m.fieldTech)||'—'}</td></tr>
     </table>`;
   const pits=st.pits||[];
   if(pits.length){
     h+=`<table style="font-size:10.5px"><tr>${PIT_FIELDS.map(f=>`<td><b>${esc(f.label)}</b></td>`).join("")}</tr>`;
-    pits.forEach(p=>{const f=p.fields||{};h+=`<tr>${PIT_FIELDS.map(col=>{let v=f[col.k]||"";if(col.type==="pf"){const disp=v==='P'?'Pass':v==='F'?'<span style="color:#c00;font-weight:700">Fail</span>':v==='NA'?'N/A':'—';return `<td>${disp}</td>`;}return `<td>${esc(v)||'—'}</td>`;}).join("")}</tr>`;});
+    pits.forEach(p=>{const f=p.fields||{};h+=`<tr>${PIT_FIELDS.map(col=>{let v=f[col.k]||"";if(col.type==="pf"){const disp=v==='P'?'<span style="color:#0a8f2a;font-weight:700">Pass</span>':v==='F'?'<span style="color:#c00;font-weight:700">Fail</span>':v==='NA'?'N/A':'—';return `<td>${disp}</td>`;}return `<td>${esc(v)||'—'}</td>`;}).join("")}</tr>`;});
     h+=`</table>`;
   }else{h+=`<p style="font-size:12px">No pits recorded.</p>`;}
   for(let i=0;i<pits.length;i++){const p=pits[i];const ph=await getPhotos(activeId,"P"+p.id);if(ph.length){const urls=(await Promise.all(ph.map(x=>blobToDataURL(x.blob)))).filter(Boolean);if(urls.length)h+=`<div class="pi"><div class="pq">${esc(p.fields.pitId||("Pit "+(i+1)))} — photos</div><div class="pimgs">${urls.map(u=>`<img src="${u}">`).join("")}</div></div>`;}}
