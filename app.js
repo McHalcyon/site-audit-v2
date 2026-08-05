@@ -362,7 +362,7 @@ function renderGrid(){
     h+=`</div>`;
     h+=`<div class="label" style="margin-top:24px">Pits (${st.pits.length})</div>`;
     h+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-      <label class="importbtn" style="flex:1;min-width:150px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:2px solid var(--accent);background:#fff;color:var(--accent);border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">⬆ Import pit list<input type="file" accept=".csv,.xlsx,.xls" style="display:none" onchange="importPits(this.files)"></label>
+      <label class="importbtn" style="flex:1;min-width:150px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:2px solid var(--accent);background:#fff;color:var(--accent);border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">Import pit list<input type="file" accept=".csv,.xlsx,.xls" style="display:none" onchange="importPits(this.files)"></label>
       <button onclick="downloadTemplate()" style="border:1px solid var(--line);background:#fff;color:var(--navy);border-radius:12px;padding:12px 14px;font-size:13px;font-weight:700;cursor:pointer">Template</button>
     </div>
     <div class="hint" style="margin-top:-6px;margin-bottom:6px">PM fills Site Name, Project Manager &amp; the pit list (Excel/CSV) → import here to pre-fill.</div>`;
