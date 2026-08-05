@@ -7,7 +7,7 @@
    APP_TITLE: the title shown in the header on the dashboard.
    ========================================================= */
 const LOGO_SRC = "Assets/logo2.png";               // e.g. "logo.png"
-const APP_TITLE = "Site Audits Checklist";   // dashboard header title
+const APP_TITLE = "Site Audits";   // dashboard header title
 
 let logoOk=false;
 function applyBranding(){
@@ -90,6 +90,7 @@ const TYPES={
 const SDU_META=[
   {k:"date", label:"Date", type:"date"},
   {k:"siteName", label:"Site Name", ph:"Site name"},
+  {k:"inspector", label:"PCTSI Inspector", ph:"Name"},
   {k:"pm", label:"Project Manager", ph:"Name"},
   {k:"fieldTech", label:"Field Tech", ph:"Name"}
 ];
@@ -320,6 +321,7 @@ function ensurePitValid(){if(pitInvalid(pit(editingPit))){showCmtWarn();return f
 function leavePits(){if(ensurePitValid())backToPits();}
 function pitSummary(p){const f=p.fields||{};const pf=PIT_FIELDS.filter(x=>x.type==="pf");const P=pf.filter(x=>f[x.k]==="P").length,F=pf.filter(x=>f[x.k]==="F").length,N=pf.filter(x=>f[x.k]==="NA").length;return "Save this pit and start a new one?\n\nPit: "+(f.pitId||"(no ID)")+(f.pitType?" · "+f.pitType:"")+"\nPass "+P+" · Fail "+F;}
 function newPitFromEditor(){if(!ensurePitValid())return;if(!confirm(pitSummary(pit(editingPit))))return;addPit();}
+function nextPit(){if(!ensurePitValid())return;const i=st.pits.findIndex(x=>x.id===editingPit);if(i>-1&&i<st.pits.length-1)editPit(st.pits[i+1].id);}
 
 function renderGrid(){
   const t=TYPES[A().type];
@@ -347,13 +349,14 @@ function renderGrid(){
       else if(f.type==="pf")h+=pfHTML(p.id,f.k);
     });
     h+=`<div class="label">Photos</div><div class="photos" id="ph_P${p.id}"></div>
-      <label class="addph" id="addlbl_P${p.id}"><span class="ic" style="font-size:18px">＋</span> Add photo
+      <label class="addph" id="addlbl_P${p.id}"><span class="addtxt"><span class="ic" style="font-size:18px">＋</span> Add photo</span>
         <input type="file" accept="image/*" multiple style="display:none" onchange="addPhotos('P${p.id}',this.files)"></label>
       <div class="hint">Photos for this pit. Stored on this device; also upload under the project folder.</div>
       <button onclick="deletePit('${p.id}')" style="width:100%;margin-top:24px;border:1px solid var(--line);background:#fff;color:var(--red);border-radius:12px;padding:14px;font-size:14px;font-weight:700;cursor:pointer">🗑 Delete this pit</button>`;
     sc.innerHTML=h;
     loadThumbs("P"+p.id);
-    nav.innerHTML=`<button class="back" onclick="leavePits()">‹ Pits</button><button class="next" onclick="newPitFromEditor()">＋ New pit</button>`;
+    const _pi=st.pits.findIndex(x=>x.id===editingPit);const _last=_pi===st.pits.length-1;
+    nav.innerHTML=`<button class="back" onclick="leavePits()">‹ Pits</button>`+(_last?`<button class="next" onclick="newPitFromEditor()">＋ New pit</button>`:`<button class="next" onclick="nextPit()">Next pit →</button>`);
   }else{
     document.getElementById("topStep").textContent="Inspection";
     let h=`<div style="background:#fff6df;border:1px solid #ecd99a;color:#7a5a13;border-radius:12px;padding:13px 15px;font-size:13.5px;line-height:1.45">⚠︎ <b>Refer to the schematic / design</b> during the inspection. All photos to be uploaded under the project folder with the date.</div>`;
@@ -433,7 +436,7 @@ function renderScreen(){
     });
     if(it.photo){
       h+=`<div class="label">Photos</div><div class="photos" id="ph_${it.n}"></div>
-        <label class="addph" id="addlbl_${it.n}"><span class="ic" style="font-size:18px">＋</span> Add photo
+        <label class="addph" id="addlbl_${it.n}"><span class="addtxt"><span class="ic" style="font-size:18px">＋</span> Add photo</span>
           <input type="file" accept="image/*" multiple style="display:none" onchange="addPhotos('${it.n}',this.files)"></label>
         <div class="hint">Tap to take a photo or choose from your library. Stored on this device; also upload to Towers.</div>`;
     }
@@ -497,9 +500,14 @@ function setObs(v){st.obs=v;save();}
 
 /* photo UI wrappers (use activeId) */
 async function addPhotos(item,files){
-  if(!files||!files.length)return;const lbl=document.getElementById("addlbl_"+item);if(lbl)lbl.textContent="Adding…";
+  if(!files||!files.length)return;
+  const lbl=document.getElementById("addlbl_"+item);
+  const txt=lbl?lbl.querySelector(".addtxt"):null;
+  if(txt)txt.textContent="Adding…";
   for(const f of Array.from(files)){const b=await compress(f);await addPhoto(activeId,item,b);}
-  if(lbl)lbl.innerHTML='<span class="ic" style="font-size:18px">＋</span> Add photo';loadThumbs(item);save();
+  if(txt)txt.innerHTML='<span class="ic" style="font-size:18px">＋</span> Add photo';
+  loadThumbs(item);save();
+  if(lbl){const inp=lbl.querySelector('input[type=file]');if(inp)inp.value="";}
 }
 async function loadThumbs(item){
   const el=document.getElementById("ph_"+item);if(!el)return;
