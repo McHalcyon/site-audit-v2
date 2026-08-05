@@ -99,7 +99,8 @@
   #printView{display:none}
   @media print{
     .app{display:none!important}
-    #printView{display:block;padding:0 6px}
+    #printView{display:block;padding:0 6px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    #printView *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
     #printView h2{font-size:16px;border-bottom:2px solid #000;padding-bottom:6px}
     #printView .pi{break-inside:avoid;border-bottom:1px solid #ccc;padding:8px 0}
     #printView .pq{font-weight:700;font-size:13px}
