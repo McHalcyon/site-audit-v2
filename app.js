@@ -90,7 +90,6 @@ const TYPES={
 const SDU_META=[
   {k:"date", label:"Date", type:"date"},
   {k:"siteName", label:"Site Name", ph:"Site name"},
-  {k:"inspector", label:"PCTSI Inspector", ph:"Name"},
   {k:"pm", label:"Project Manager", ph:"Name"},
   {k:"fieldTech", label:"Field Tech", ph:"Name"}
 ];
@@ -322,6 +321,7 @@ function leavePits(){if(ensurePitValid())backToPits();}
 function pitSummary(p){const f=p.fields||{};const pf=PIT_FIELDS.filter(x=>x.type==="pf");const P=pf.filter(x=>f[x.k]==="P").length,F=pf.filter(x=>f[x.k]==="F").length,N=pf.filter(x=>f[x.k]==="NA").length;return "Save this pit and start a new one?\n\nPit: "+(f.pitId||"(no ID)")+(f.pitType?" · "+f.pitType:"")+"\nPass "+P+" · Fail "+F;}
 function newPitFromEditor(){if(!ensurePitValid())return;if(!confirm(pitSummary(pit(editingPit))))return;addPit();}
 function nextPit(){if(!ensurePitValid())return;const i=st.pits.findIndex(x=>x.id===editingPit);if(i>-1&&i<st.pits.length-1)editPit(st.pits[i+1].id);}
+function prevPit(){if(!ensurePitValid())return;const i=st.pits.findIndex(x=>x.id===editingPit);if(i>0)editPit(st.pits[i-1].id);}
 
 function renderGrid(){
   const t=TYPES[A().type];
@@ -355,8 +355,12 @@ function renderGrid(){
       <button onclick="deletePit('${p.id}')" style="width:100%;margin-top:24px;border:1px solid var(--line);background:#fff;color:var(--red);border-radius:12px;padding:14px;font-size:14px;font-weight:700;cursor:pointer">🗑 Delete this pit</button>`;
     sc.innerHTML=h;
     loadThumbs("P"+p.id);
-    const _pi=st.pits.findIndex(x=>x.id===editingPit);const _last=_pi===st.pits.length-1;
-    nav.innerHTML=`<button class="back" onclick="leavePits()">‹ Pits</button>`+(_last?`<button class="next" onclick="newPitFromEditor()">＋ New pit</button>`:`<button class="next" onclick="nextPit()">Next pit →</button>`);
+    const _pi=st.pits.findIndex(x=>x.id===editingPit);const _first=_pi<=0;const _last=_pi===st.pits.length-1;
+    const _grey="flex:1;border:none;border-radius:12px;padding:15px 6px;font-size:15px;font-weight:700;cursor:pointer;background:#e4e9f0;color:var(--navy);";
+    nav.innerHTML=
+      `<button onclick="prevPit()" style="${_grey}${_first?'opacity:.4;':''}">‹ Prev</button>`
+      +`<button onclick="leavePits()" style="${_grey}">Pits</button>`
+      +(_last?`<button class="next" onclick="newPitFromEditor()" style="flex:1">＋ New</button>`:`<button class="next" onclick="nextPit()" style="flex:1">Next ›</button>`);
   }else{
     document.getElementById("topStep").textContent="Inspection";
     let h=`<div style="background:#fff6df;border:1px solid #ecd99a;color:#7a5a13;border-radius:12px;padding:13px 15px;font-size:13.5px;line-height:1.45">⚠︎ <b>Refer to the schematic / design</b> during the inspection. All photos to be uploaded under the project folder with the date.</div>`;
@@ -365,7 +369,7 @@ function renderGrid(){
     h+=`</div>`;
     h+=`<div class="label" style="margin-top:24px">Pits (${st.pits.length})</div>`;
     h+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-      <label class="importbtn" style="flex:1;min-width:150px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:2px solid var(--accent);background:#fff;color:var(--accent);border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">Import pit list<input type="file" accept=".csv,.xlsx,.xls" style="display:none" onchange="importPits(this.files)"></label>
+      <label class="importbtn" style="flex:1;min-width:150px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:2px solid var(--accent);background:#fff;color:var(--accent);border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">⬆ Import pit list<input type="file" accept=".csv,.xlsx,.xls" style="display:none" onchange="importPits(this.files)"></label>
       <button onclick="downloadTemplate()" style="border:1px solid var(--line);background:#fff;color:var(--navy);border-radius:12px;padding:12px 14px;font-size:13px;font-weight:700;cursor:pointer">Template</button>
     </div>
     <div class="hint" style="margin-top:-6px;margin-bottom:6px">PM fills Site Name, Project Manager &amp; the pit list (Excel/CSV) → import here to pre-fill.</div>`;
