@@ -25,14 +25,16 @@ const MDU_ITEMS=[
   {n:"3", q:"Pathway from BEP to MCR installed?", opts:{lab:"Via",c:["Conduit","Cabletray"]}, yn:1, photo:1},
   {n:"4", q:"Comms Room with lockable door installed (and DGPO)?", yn:1, photo:1, subs:[
     {q:"Depth-Width-Height fit for MCR?", yn:1},
-    {q:"Wall (if MDF)", opts:{c:["Fire Rate","Fire Proof"]}},
+    {q:"Wall (if MDF)", opts:{c:["Fire Rate","Fire Proof","Unsure - Sparky to confirm"]}},
     {q:"Power (DGPO) to MCR?", yn:1}
   ]},
-  {n:"5", q:"Pathway from MCR to Riser — Cabletray ready?", opts:{lab:"Run (select all that apply)",c:["Vertical","Horizontal"],multi:1}, yn:1, photo:1},
+  {n:"5", q:"Pathway from MCR to Riser — Cabletray ready?", opts:{lab:"Run (select all that apply)",c:["Vertical","Horizontal"],multi:1}, yn:1, photo:1, subs:[
+    {q:"Is MCR/Risers dust-free?", yn:1}
+  ]},
   {n:"6", q:"Depth of Riser to fit FDT–FDH–DR (and DGPO)?", schem:1, yn:1, photo:1, subs:[
     {q:"Depth of Riser", inp:"e.g. 600 mm"},
     {q:"Size of penetration", inp:"e.g. 150 mm"},
-    {q:"Wall (if MDF)", opts:{c:["Fire Rate","Fire Proof"]}}
+    {q:"Wall (if MDF)", opts:{c:["Fire Rate","Fire Proof","Unsure - Sparky to confirm"]}}
   ]},
   {n:"7", q:"Apartments — Conduits/Cabletrays with drawstring ready?", yn:1, photo:1, subs:[
     {q:"How many Apartments/Lots ready (or Levels)?", inp:"e.g. 24"}
@@ -235,7 +237,11 @@ function openAudit(id){
   else{pos=0;view="wizard";}
   goTop=true;renderApp();
 }
-function goMenu(){if(view==="grid"&&gridView==="pit"&&pitInvalid(pit(editingPit))){showCmtWarn();return;}save();view="dashboard";goTop=true;renderApp();}
+function goMenu(){
+  if(view==="grid"&&gridView==="pit"&&pitInvalid(pit(editingPit))){showCmtWarn();return;}
+  if((view==="grid"||view==="wizard")&&!confirm("Leave and return to the menu?\n\nYour progress is saved.")) return;
+  save();view="dashboard";goTop=true;renderApp();
+}
 async function deleteAudit(id){
   const a=DB.audits[id];if(!a)return;
   if(!confirm(`Delete this ${a.type} audit for "${a.site||'Untitled site'}"? This removes its answers and photos from this device.`))return;
@@ -246,8 +252,9 @@ async function deleteAudit(id){
 }
 async function pdfAudit(id){
   const a=DB.audits[id];if(!a)return;
-  if(TYPES[a.type].mode==="grid"){const bad=(a.st.pits||[]).find(pitInvalid);if(bad){alert("This inspection has a pit marked Fail without a comment.\n\nOpen it and add the comment before exporting.");openAudit(id);editPit(bad.id);setTimeout(showCmtWarn,80);return;}}
-  activeId=id;ITEMS=TYPES[a.type].items;st=a.st;
+  activeId=id;ITEMS=TYPES[a.type].items||[];st=a.st;
+  if(TYPES[a.type].mode==="grid"){const bad=(st.pits||[]).find(pitInvalid);if(bad){alert("This inspection has a pit marked Fail without a comment.\n\nOpen it and add the comment before exporting.");openAudit(id);editPit(bad.id);setTimeout(showCmtWarn,80);return;}}
+  else{for(let i=0;i<ITEMS.length;i++){const it=ITEMS[i];if(itemNeedsComment(it)&&!itemHasComment(it)){alert("Item "+it.n+" is marked No but has no comment.\n\nFTT to provide more info before exporting.");openAudit(id);pos=i+1;goTop=true;renderApp();setTimeout(showItemCmtWarn,80);return;}}}
   await buildPrint();setTimeout(()=>window.print(),80);
 }
 
@@ -257,8 +264,7 @@ function setPitField(id,key,val){const p=pit(id);p.fields=p.fields||{};p.fields[
 function setPF(id,key,val){const p=pit(id);p.fields=p.fields||{};p.fields[key]=(p.fields[key]===val)?"":val;save();renderApp();}
 function pfHTML(id,key){const v=(pit(id).fields||{})[key]||"";return `<div class="yn">
   <button class="y ${v==='P'?'on':''}" onclick="setPF('${id}','${key}','P')">Pass</button>
-  <button class="n ${v==='F'?'on':''}" onclick="setPF('${id}','${key}','F')">Fail</button>
-  <button class="x ${v==='NA'?'on':''}" onclick="setPF('${id}','${key}','NA')">N/A</button></div>`;}
+  <button class="n ${v==='F'?'on':''}" onclick="setPF('${id}','${key}','F')">Fail</button></div>`;}
 function addPit(){const id="p"+Date.now().toString(36)+Math.floor(Math.random()*1e4);st.pits.push({id,fields:{}});save();editingPit=id;gridView="pit";goTop=true;renderApp();}
 function editPit(id){editingPit=id;gridView="pit";goTop=true;renderApp();}
 async function deletePit(id){
@@ -274,7 +280,7 @@ function showCmtWarn(){const wn=document.getElementById("cmtWarn");if(wn)wn.styl
 function hideCmtWarn(){const wn=document.getElementById("cmtWarn");if(wn)wn.style.display="none";const b=document.getElementById("cmtBox");if(b)b.style.borderColor="";}
 function ensurePitValid(){if(pitInvalid(pit(editingPit))){showCmtWarn();return false;}return true;}
 function leavePits(){if(ensurePitValid())backToPits();}
-function pitSummary(p){const f=p.fields||{};const pf=PIT_FIELDS.filter(x=>x.type==="pf");const P=pf.filter(x=>f[x.k]==="P").length,F=pf.filter(x=>f[x.k]==="F").length,N=pf.filter(x=>f[x.k]==="NA").length;return "Save this pit and start a new one?\n\nPit: "+(f.pitId||"(no ID)")+(f.pitType?" · "+f.pitType:"")+"\nPass "+P+" · Fail "+F+" · N/A "+N;}
+function pitSummary(p){const f=p.fields||{};const pf=PIT_FIELDS.filter(x=>x.type==="pf");const P=pf.filter(x=>f[x.k]==="P").length,F=pf.filter(x=>f[x.k]==="F").length,N=pf.filter(x=>f[x.k]==="NA").length;return "Save this pit and start a new one?\n\nPit: "+(f.pitId||"(no ID)")+(f.pitType?" · "+f.pitType:"")+"\nPass "+P+" · Fail "+F;}
 function newPitFromEditor(){if(!ensurePitValid())return;if(!confirm(pitSummary(pit(editingPit))))return;addPit();}
 
 function renderGrid(){
@@ -298,7 +304,7 @@ function renderGrid(){
       else if(f.type==="textarea"){
         const isC=f.k==="comments";
         h+=`<textarea ${isC?'id="cmtBox"':''} placeholder="Notes…" oninput="setPitField('${p.id}','${f.k}',this.value)${isC?";hideCmtWarn()":""}">${esc(v)}</textarea>`;
-        if(isC)h+=`<div id="cmtWarn" style="display:none;color:var(--red);font-size:12.5px;font-weight:700;margin-top:8px">⚠︎ A comment is required when any item is marked <b>Fail</b>. Please add one to continue.</div>`;
+        if(isC)h+=`<div id="cmtWarn" style="display:none;color:var(--red);font-size:12.5px;font-weight:700;margin-top:8px">⚠︎ A comment is required when any item is marked <b>Fail</b> — FTT to provide more info.</div>`;
       }
       else if(f.type==="pf")h+=pfHTML(p.id,f.k);
     });
@@ -337,8 +343,7 @@ function renderGrid(){
 function LAST(){return ITEMS.length+1;}
 function ynHTML(id,key){const cur=(st.items[id]||{})[key]||"";return `<div class="yn">
   <button class="y ${cur==='Y'?'on':''}" onclick="setVal('${id}','${key}','Y',1)">Yes</button>
-  <button class="n ${cur==='N'?'on':''}" onclick="setVal('${id}','${key}','N',1)">No</button>
-  <button class="x ${cur==='NA'?'on':''}" onclick="setVal('${id}','${key}','NA',1)">N/A</button></div>`;}
+  <button class="n ${cur==='N'?'on':''}" onclick="setVal('${id}','${key}','N',1)">No</button></div>`;}
 function chipHTML(id,key,opts){
   if(opts.multi){const cur=Array.isArray((st.items[id]||{})[key])?(st.items[id][key]):[];
     return `<div class="chips">${opts.c.map(o=>`<button class="chip ${cur.indexOf(o)>-1?'on':''}" onclick="toggleMulti('${id}','${key}','${esc(o)}')">${esc(o)}</button>`).join("")}</div>`;}
@@ -389,7 +394,10 @@ function renderScreen(){
           <input type="file" accept="image/*" multiple style="display:none" onchange="addPhotos('${it.n}',this.files)"></label>
         <div class="hint">Tap to take a photo or choose from your library. Stored on this device; also upload to Towers.</div>`;
     }
-    h+=`<div class="label">Comment (optional)</div><textarea placeholder="Notes for this item…" oninput="setVal('${it.n}','note',this.value,0)">${esc((st.items[it.n]||{}).note)}</textarea>`;
+    const needC=itemNeedsComment(it);
+    h+=`<div class="label">Comment${needC?' <span style="color:var(--red)">(required)</span>':' (optional)'}</div>
+      <textarea id="itemCmt" placeholder="${needC?'Required — FTT to provide more info on the No':'Notes for this item…'}" oninput="setVal('${it.n}','note',this.value,0);hideItemCmtWarn()">${esc((st.items[it.n]||{}).note)}</textarea>
+      <div id="itemCmtWarn" style="display:none;color:var(--red);font-size:12.5px;font-weight:700;margin-top:8px">⚠︎ A comment is required when any answer is <b>No</b> — FTT to provide more info.</div>`;
     sc.innerHTML=h;
     if(it.photo)loadThumbs(it.n);
   }
@@ -431,7 +439,14 @@ function renderNav(){
   else if(pos===LAST())nav.innerHTML=`<button class="back" onclick="prev()">← Back</button><button class="save" onclick="saveP()">Save PDF</button>`;
   else nav.innerHTML=`<button class="back" onclick="prev()">← Back</button><button class="next" onclick="next()">${pos===ITEMS.length?'Review →':'Next →'}</button>`;
 }
-function next(){if(pos<LAST()){pos++;goTop=true;renderApp();}}
+function itemNeedsComment(it){const d=st.items[it.n]||{};if(it.yn&&d.yn==='N')return true;return (it.subs||[]).some((s,i)=>s.yn&&d["s"+i+"yn"]==='N');}
+function itemHasComment(it){return !!((st.items[it.n]||{}).note||"").trim();}
+function showItemCmtWarn(){const wn=document.getElementById("itemCmtWarn");if(wn)wn.style.display="block";const b=document.getElementById("itemCmt");if(b){b.style.borderColor="var(--red)";try{b.scrollIntoView({behavior:"smooth",block:"center"});}catch(e){}try{b.focus();}catch(e){}}}
+function hideItemCmtWarn(){const wn=document.getElementById("itemCmtWarn");if(wn)wn.style.display="none";const b=document.getElementById("itemCmt");if(b)b.style.borderColor="";}
+function next(){
+  if(pos>=1&&pos<=ITEMS.length){const it=ITEMS[pos-1];if(itemNeedsComment(it)&&!itemHasComment(it)){showItemCmtWarn();return;}}
+  if(pos<LAST()){pos++;goTop=true;renderApp();}
+}
 function prev(){if(pos>0){pos--;goTop=true;renderApp();}}
 function setVal(id,key,val,re){const d=get(id);d[key]=(re&&d[key]===val)?"":val;save();if(re)renderApp();}
 function setMeta(k,v){st.meta[k]=v;save();}
@@ -467,10 +482,16 @@ async function buildPrint(){
     </table>`;
   for(const it of ITEMS){
     const d=st.items[it.n]||{};let ai="";
-    if(it.yn){const v=d.yn;ai+=`<b>${v==='NA'?'N/A':v==='Y'?'YES':v==='N'?'NO':'—'}</b>`;}
+    if(it.yn){const v=d.yn;ai+= v==='Y'?'<b>YES</b>':v==='N'?'<b style="color:#c00">NO</b>':v==='NA'?'<b>N/A</b>':'<b>—</b>';}
     if(d.chip && (!Array.isArray(d.chip)||d.chip.length))ai+=` &nbsp; [${esc(Array.isArray(d.chip)?d.chip.join(", "):d.chip)}]`;
     let subs="";
-    (it.subs||[]).forEach((s,i)=>{let sv=d["s"+i+"yn"]?(d["s"+i+"yn"]==='NA'?'N/A':d["s"+i+"yn"]==='Y'?'Yes':'No'):(d["s"+i+"chip"]||d["s"+i+"txt"]||'—');subs+=`<div style="margin-left:14px;font-size:12px">› ${esc(s.q)}: <b>${esc(sv)}</b></div>`;});
+    (it.subs||[]).forEach((s,i)=>{
+      const yn=d["s"+i+"yn"];
+      let disp;
+      if(yn)disp= yn==='N'?'<b style="color:#c00">No</b>':yn==='NA'?'<b>N/A</b>':'<b>Yes</b>';
+      else disp='<b>'+esc(d["s"+i+"chip"]||d["s"+i+"txt"]||'—')+'</b>';
+      subs+=`<div style="margin-left:14px;font-size:12px">› ${esc(s.q)}: ${disp}</div>`;
+    });
     let imgs="";
     if(it.photo){const ph=await getPhotos(activeId,it.n);if(ph.length){const urls=(await Promise.all(ph.map(p=>blobToDataURL(p.blob)))).filter(Boolean);if(urls.length)imgs=`<div class="pimgs">${urls.map(u=>`<img src="${u}">`).join("")}</div>`;}}
     h+=`<div class="pi"><div class="pq">${esc(it.n)}. ${esc(it.q)} — ${ai}</div>${subs}${d.note?`<div class="pa">Note: ${esc(d.note)}</div>`:''}${imgs}</div>`;
@@ -489,7 +510,7 @@ async function buildPrintGrid(t,m){
   const pits=st.pits||[];
   if(pits.length){
     h+=`<table style="font-size:10.5px"><tr>${PIT_FIELDS.map(f=>`<td><b>${esc(f.label)}</b></td>`).join("")}</tr>`;
-    pits.forEach(p=>{const f=p.fields||{};h+=`<tr>${PIT_FIELDS.map(col=>{let v=f[col.k]||"";if(col.type==="pf")v=pf(v);return `<td>${esc(v)||'—'}</td>`;}).join("")}</tr>`;});
+    pits.forEach(p=>{const f=p.fields||{};h+=`<tr>${PIT_FIELDS.map(col=>{let v=f[col.k]||"";if(col.type==="pf"){const disp=v==='P'?'Pass':v==='F'?'<span style="color:#c00;font-weight:700">Fail</span>':v==='NA'?'N/A':'—';return `<td>${disp}</td>`;}return `<td>${esc(v)||'—'}</td>`;}).join("")}</tr>`;});
     h+=`</table>`;
   }else{h+=`<p style="font-size:12px">No pits recorded.</p>`;}
   for(let i=0;i<pits.length;i++){const p=pits[i];const ph=await getPhotos(activeId,"P"+p.id);if(ph.length){const urls=(await Promise.all(ph.map(x=>blobToDataURL(x.blob)))).filter(Boolean);if(urls.length)h+=`<div class="pi"><div class="pq">${esc(p.fields.pitId||("Pit "+(i+1)))} — photos</div><div class="pimgs">${urls.map(u=>`<img src="${u}">`).join("")}</div></div>`;}}
@@ -498,6 +519,7 @@ async function buildPrintGrid(t,m){
 }
 async function saveP(){
   if(mode()==="grid"){const bad=(st.pits||[]).find(pitInvalid);if(bad){alert("“"+((bad.fields&&bad.fields.pitId)||"A pit")+"” has an item marked Fail but no comment.\n\nPlease add a comment for that pit before saving.");editPit(bad.id);setTimeout(showCmtWarn,80);return;}}
+  else{for(let i=0;i<ITEMS.length;i++){const it=ITEMS[i];if(itemNeedsComment(it)&&!itemHasComment(it)){alert("Item "+it.n+" is marked No but has no comment.\n\nFTT to provide more info before saving.");pos=i+1;goTop=true;renderApp();setTimeout(showItemCmtWarn,80);return;}}}
   const btn=document.querySelector(".nav .save");if(btn)btn.textContent="Preparing…";await buildPrint();if(btn)btn.textContent="Save PDF";setTimeout(()=>window.print(),80);}
 
 /* ============ init ============ */
