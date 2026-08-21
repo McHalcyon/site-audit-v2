@@ -44,6 +44,10 @@ The home screen shows the audit-type tiles (to start a new audit) and a **Saved 
 - **PDF colour coding.** In the exported PDF, **YES / Pass are green** and **NO / Fail are red** for quick scanning. *(Keep "Background graphics" enabled in the print options so colours print.)*
 - **Photos.** Multiple photos per item/pit, taken with the camera or picked from the library. They're auto-compressed and embedded in the PDF. Photos are also meant to be uploaded to Towers under the project folder.
 - **Auto-save.** Progress is saved to the device continuously; leaving to the menu keeps it.
+- **Export to Excel.** The **SDU / PCTSI** screen exports into your **PCTSI Excel template** (keeps the logo, header, borders, and STAGE 1 / STAGE 2 layout) — pit rows filled with Pass/Fail per condition and comments, split by each pit's Stage. The MDU/Pit Review screen exports a plain data sheet. Photos stay in the PDF.
+- **Stage per pit (SDU).** Each pit has a **Stage 1 / Stage 2** setting (also an import column) that controls which section it lands in on the PCTSI template.
+- **Site / additional photos.** On the wizard Review screen you can add general site photos (not tied to a single item); they're embedded in the PDF.
+- **Multiple risers (MDU item 5).** Item 5 lets you add one or more risers, each with its own Run (Vertical/Horizontal) and dust-free check.
 
 ---
 
@@ -63,20 +67,39 @@ Notes:
 
 ---
 
+## Installing as an app
+
+The app is a fully installable PWA — a real icon, its own window (no browser bars), and offline caching:
+
+- **iPhone (Safari):** open the hosted link → Share → **Add to Home Screen**.
+- **Android (Chrome):** open the hosted link → menu (⋮) → **Install app** / **Add to Home screen**.
+
+Once installed it opens full-screen with the app icon and stays usable offline (the service worker caches the app shell and refreshes it automatically whenever there's a connection).
+
+---
+
 ## File structure
 
 ```
 site-audit/
-├── index.html                 # page shell (links CSS + JS, favicon)
+├── index.html                 # page shell (links CSS + JS, PWA meta, manifest, favicon)
 ├── styles.css                 # all styling
-├── app.js                     # all logic (audit types, storage, PDF, import)
-├── vendor/
-│   └── xlsx.full.min.js        # SheetJS — required for reading .xlsx offline
+├── app.js                     # all logic (audit types, storage, PDF, import/export)
+├── manifest.json              # PWA install metadata (name, icons, colours)
+├── sw.js                      # service worker — offline app-shell caching
+├── xlsx.full.min.js           # SheetJS — reads .xlsx import files
+├── exceljs.min.js             # ExcelJS — fills the PCTSI Excel template (keeps formatting)
+├── pctsi-template.js          # your PCTSI template, embedded for offline use
 ├── assets/
-│   ├── logo.png                # optional in-app header logo
-│   └── favicon.png             # optional browser-tab / home-screen icon
-├── pit-list-template.xlsx      # PM template (not used by the app itself)
-└── pit-list-template.csv       # PM template
+│   ├── icon-192.png            # PWA icon
+│   ├── icon-512.png            # PWA icon
+│   ├── icon-512-maskable.png   # Android adaptive icon (full-bleed safe-zone)
+│   ├── apple-touch-icon.png    # iOS home-screen icon
+│   ├── favicon-32.png / favicon-16.png  # browser tab icon
+│   └── logo.png                 # optional — in-app header logo (add your own)
+├── pctsi-template.xlsx        # reference copy of the PM's template (not used by the app)
+├── pit-list-template.xlsx     # PM pit-list import template
+└── pit-list-template.csv      # PM pit-list import template
 ```
 
 Keep all files in the same folder and paths relative — that's what lets it run on GitHub Pages *and* when opened locally.
@@ -89,7 +112,7 @@ Keep all files in the same folder and paths relative — that's what lets it run
 2. In the repo: **Settings → Pages → Source: Deploy from a branch → main → / (root) → Save**.
 3. After a minute the site is live at `https://<username>.github.io/<repo>/`.
 
-To **update**, edit/replace the changed file(s) and commit. Users who added it to their home screen should fully close and reopen it to pick up changes (favicons/assets can cache — a hard refresh helps).
+To **update**, edit/replace the changed file(s) and commit. **If you changed any file the service worker caches** (`index.html`, `styles.css`, `app.js`, the vendored JS, or the icons), bump `CACHE_VERSION` at the top of `sw.js` — otherwise installed phones may keep running the previous cached version for a while. Users who added it to their home screen should fully close and reopen it to pick up changes.
 
 ---
 
